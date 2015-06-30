@@ -1,0 +1,21 @@
+
+qbgfx:
+    hg: https://bitbucket.org/questor/qbgfx
+    dir: extlibs/qbgfx
+    rev: master
+
+remotery:
+    git: https://github.com/Celtoys/Remotery.git
+    dir: extlibs/remotery
+    rev: 2c722dc449667a1c26201a555cb6ab30c0652037
+    #fixed-rev: 2c722dc449667a1c26201a555cb6ab30c0652037
+
+remotery-buildfile:
+    hg: https://bitbucket.org/questor/extlibbuildfiles
+    dir: extlibs/.temp/buildsources
+    fixed-rev: master
+    copy:
+        - src: libRemotery.lua
+          dst: extlibs/remotery/libRemotery.lua
+
+#types not yet supported: curl
