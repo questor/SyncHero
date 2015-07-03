@@ -1,4 +1,7 @@
 
+# based on the same idea like peru, but here the sub-repos are directly pushable back to the source
+
+
 import yaml
 import argparse
 import hashlib
@@ -13,7 +16,7 @@ class Git:
         command=['git']
         if(directory):
             command.append('-C')
-            command.append('{0}'.format(directory))
+            command.append(directory)
         command.extend(args)
 
         stdout = subprocess.PIPE
@@ -28,16 +31,15 @@ class Git:
         # TODO: check for subrepos
         if os.path.exists(dir):
             Git.callGit(directory, 'fetch')
-            Git.callGit(directory, 'reset', '--hard', revision)
         else:
-            print("repopath {0} not found, initial clone running\n")
+            print("repopath {0} not found, initial clone running\n".format(dir))
             os.makedirs(directory, exist_ok=True)
             try:
                 Git.callGit(None, 'clone', '--progress', url, directory)
-                Git.callGit(directory, 'reset', '--hard', revision)
             except:
                 shutil.rmtree(directory)
                 raise
+        Git.callGit(directory, 'reset', '--hard', revision)
 
     @staticmethod
     def push(url, directory):
@@ -52,6 +54,51 @@ class Git:
     def getCurrentSyncedRevision(directory):
         rev = Git.callGit(directory, 'rev-parse', '@')
         return rev
+
+#-------------------------------------------------------------------
+class Hg:
+    @staticmethod
+    def callHg(directory, *args):
+        command=['hg']
+        if(directory):
+            command.append('--repository')
+            command.append(directory)
+        command.extend(args)
+
+        stdout = subprocess.PIPE
+        process = subprocess.Popen(command, stdin=subprocess.DEVNULL, stdout=stdout,universal_newlines=True)
+        output, _ = process.communicate()
+        if process.returncode != 0:
+            raise RuntimeError('Command exited with error code {0}:\n$ {1}\n {2}'.format(process.returncode, ' '.join(command), output))
+        return output
+
+    @staticmethod
+    def syncToRev(url, directory, revision):
+        # TODO: check for subrepos
+        if os.path.exists(dir):
+            Hg.callHg(directory, 'pull')
+        else:
+            print("repopath {0} not found, initial clone running\n".format(dir))
+            os.makedirs(directory, exist_ok=True)
+            try:
+                Hg.callHg(None, 'clone', url, directory)
+            except:
+                shutil.rmtree(directory)
+                raise
+        Hg.callHg(directory, 'update', '--rev', revision)
+
+    @staticmethod
+    def push(url, directory):
+        pass
+
+    @staticmethod
+    def getLatestRevisionOnline(directory, url):
+        Hg.callHg(directory, 'pull')
+        return Hg.callHg(directory, 'identify', '--id', '--rev tip')
+
+    @staticmethod
+    def getCurrentSyncedRevision(directory):
+        return Hg.callHg(directory, 'identify', '--id')
 
 #-------------------------------------------------------------------
 
@@ -71,6 +118,8 @@ def readconfig():
     #for k,v in doc.items():
     #    print(k, "->", v)
     #print("\n")
+
+print("SyncHero V0.2\n")
 
 config = None
 
@@ -104,9 +153,11 @@ if args.check_repos:
             elif latestRev == baseRev:
                 print("repo {0} need to push\n".format(v['dir']))
             else:
-                print("repo {0} has diverged\n")
+                print("repo {0} has diverged\n".format(v['dir']))
         if('hg' in v):
-            pass
+            syncedRev = Hg.getCurrentSyncedRevision(dir)
+            latestRev = Hg.getLatestRevisionOnline(dir)
+# TODO!
 
 elif args.sync:
     readconfig()
@@ -116,7 +167,7 @@ elif args.sync:
         if('git' in v):
             Git.syncToRev(v['git'], dir, v['rev'])
         if('hg' in v):
-            pass
+            Hg.syncToRev(v['hg'], dir, v['rev'])
     # copy files
 
 #elif args.push:

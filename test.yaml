@@ -2,7 +2,7 @@
 qbgfx:
     hg: https://bitbucket.org/questor/qbgfx
     dir: extlibs/qbgfx
-    rev: master
+    rev: tip
 
 remotery:
     git: https://github.com/Celtoys/Remotery.git
@@ -13,7 +13,8 @@ remotery:
 remotery-buildfile:
     hg: https://bitbucket.org/questor/extlibbuildfiles
     dir: extlibs/.temp/buildsources
-    fixed-rev: master
+    #fixed-rev: master
+    rev: tip
     copy:
         - src: libRemotery.lua
           dst: extlibs/remotery/libRemotery.lua
