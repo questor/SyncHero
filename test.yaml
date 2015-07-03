@@ -7,8 +7,8 @@ qbgfx:
 remotery:
     git: https://github.com/Celtoys/Remotery.git
     dir: extlibs/remotery
-    rev: 2c722dc449667a1c26201a555cb6ab30c0652037
-    #fixed-rev: 2c722dc449667a1c26201a555cb6ab30c0652037
+    rev: 76605354acb4df3846c0c54ebe5eb018f92b1c3f
+    #fixed-rev: 76605354acb4df3846c0c54ebe5eb018f92b1c3f
 
 remotery-buildfile:
     hg: https://bitbucket.org/questor/extlibbuildfiles

@@ -9,54 +9,51 @@ import shutil
 
 class Git:
     @staticmethod
-    def callGit(*args):
+    def callGit(directory, *args):
         command=['git']
-        #if(gitDir):
-        #    command.append('-C {0}'.format(gitDir))
+        if(directory):
+            command.append('-C')
+            command.append('{0}'.format(directory))
         command.extend(args)
 
         stdout = subprocess.PIPE
         process = subprocess.Popen(command, stdin=subprocess.DEVNULL, stdout=stdout,universal_newlines=True)
         output, _ = process.communicate()
         if process.returncode != 0:
-            raise RuntimeError('Command exited with error code {0}:\n$ {1}\n {2}'.format(
-                process.returncode, ' '.join(command), output
-            ))
+            raise RuntimeError('Command exited with error code {0}:\n$ {1}\n {2}'.format(process.returncode, ' '.join(command), output))
         return output
 
     @staticmethod
-    def cloneToDir(url, directory, revision):
-        # returns the revision synced to
+    def syncToRev(url, directory, revision):
         # TODO: check for subrepos
-        os.makedirs(directory, exist_ok=True)
-        currentDir = os.getcwd()
-        try:
-            # git clone git@github.com:whatever folder-name
-            Git.callGit('clone', '--progress', url, directory)       # oder fetch?
-            os.chdir(directory)
-            Git.callGit('checkout', revision)
-            os.chdir(currentDir)
-        except:
-            os.chdir(currentDir)
-            shutil.rmtree(directory)
-            raise
-        return Git.getCurrentSyncedRevision(directory)
+        if os.path.exists(dir):
+            Git.callGit(directory, 'fetch')
+            Git.callGit(directory, 'reset', '--hard', revision)
+        else:
+            print("repopath {0} not found, initial clone running\n")
+            os.makedirs(directory, exist_ok=True)
+            try:
+                Git.callGit(None, 'clone', '--progress', url, directory)
+                Git.callGit(directory, 'reset', '--hard', revision)
+            except:
+                shutil.rmtree(directory)
+                raise
 
     @staticmethod
     def push(url, directory):
         pass
 
     @staticmethod
-    def getLatestRevisionOnline(url):
-        pass
+    def getLatestRevisionOnline(directory, url):
+        Git.callGit(directory, 'fetch')
+        return Git.callGit(directory, 'rev-parse', '@{u}')
 
     @staticmethod
     def getCurrentSyncedRevision(directory):
-        currentDir = os.getcwd()
-        os.chdir(directory)
-        rev = Git.callGit('log', '--pretty=format:"%h"', '-n 1')
-        os.chdir(currentDir)
+        rev = Git.callGit(directory, 'rev-parse', '@')
         return rev
+
+#-------------------------------------------------------------------
 
 def hashfile(afile, hasher, blocksize=65536):
     buf = afile.read(blocksize)
@@ -85,7 +82,7 @@ MODULE_ROOT = os.path.abspath(os.path.dirname(__file__))
 
 parser = argparse.ArgumentParser(description='SyncHero')
 parser.add_argument('-c', '--check-repos', help='check for updates in the repositories', action='store_true')
-parser.add_argument('-s', '--sync-updates', help='check for updates and sync to new versions', action='store_true')
+parser.add_argument('-s', '--sync', help='sync to revisions from config file', action='store_true')
 #parser.add_argument('-p', '--push', help='push all repos back onto server', action='store_true')
 parser.add_argument('-r', '--reverse-copy', help='reverse copy of files moved during sync', action='store_true')
 args = parser.parse_args()
@@ -97,17 +94,31 @@ if args.check_repos:
     for k,v in config.items():
         dir = os.path.join(MODULE_ROOT, "".join(v['dir']))
         if('git' in v):
-            Git.getCurrentSyncedRevision(dir)
+            syncedRev = Git.getCurrentSyncedRevision(dir)
+            latestRev = Git.getLatestRevisionOnline(dir, v['git'])
+            baseRev = Git.callGit(dir, 'merge-base', '@', '@{u}')
+            if syncedRev == latestRev:
+                print("repo {0} is up to date\n".format(v['dir']))
+            elif syncedRev == baseRev:
+                print("repo {0} need to pull(latest commit:{1})\n".format(v['dir'], latestRev.rstrip()))
+            elif latestRev == baseRev:
+                print("repo {0} need to push\n".format(v['dir']))
+            else:
+                print("repo {0} has diverged\n")
         if('hg' in v):
-            print(v['hg'])
-elif args.sync_updates:
+            pass
+
+elif args.sync:
     readconfig()
     # sync repos
     for k,v in config.items():
         dir = os.path.join(MODULE_ROOT, "".join(v['dir']))
         if('git' in v):
-            Git.cloneToDir(v['git'], dir, v['rev'])
+            Git.syncToRev(v['git'], dir, v['rev'])
+        if('hg' in v):
+            pass
     # copy files
+
 #elif args.push:
 #    readconfig()
 elif args.reverse_copy:
