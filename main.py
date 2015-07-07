@@ -32,7 +32,7 @@ class Git:
         if os.path.exists(dir):
             Git.callGit(directory, 'fetch')
         else:
-            print("repopath {0} not found, initial clone running\n".format(dir))
+            print("repopath {0} not found, initial clone running".format(dir))
             os.makedirs(directory, exist_ok=True)
             try:
                 Git.callGit(None, 'clone', '--progress', url, directory)
@@ -78,7 +78,7 @@ class Hg:
         if os.path.exists(dir):
             Hg.callHg(directory, 'pull')
         else:
-            print("repopath {0} not found, initial clone running\n".format(dir))
+            print("repopath {0} not found, initial clone running".format(dir))
             os.makedirs(directory, exist_ok=True)
             try:
                 Hg.callHg(None, 'clone', url, directory)
@@ -94,7 +94,7 @@ class Hg:
     @staticmethod
     def getLatestRevisionOnline(directory, url):
         Hg.callHg(directory, 'pull')
-        return Hg.callHg(directory, 'identify', '--id', '--rev tip')
+        return Hg.callHg(directory, 'identify', '--id', '--rev', 'tip')
 
     @staticmethod
     def getCurrentSyncedRevision(directory):
@@ -119,7 +119,7 @@ def readconfig():
     #    print(k, "->", v)
     #print("\n")
 
-print("SyncHero V0.2\n")
+print("SyncHero V0.3")
 
 config = None
 
@@ -142,33 +142,53 @@ if args.check_repos:
     readconfig()
     for k,v in config.items():
         dir = os.path.join(MODULE_ROOT, "".join(v['dir']))
+
+        if('fixed-rev' in v):
+            print("skipping repo {0} because of fixed-rev".format(v['dir'].rstrip()))
+            continue
+
         if('git' in v):
             syncedRev = Git.getCurrentSyncedRevision(dir)
             latestRev = Git.getLatestRevisionOnline(dir, v['git'])
             baseRev = Git.callGit(dir, 'merge-base', '@', '@{u}')
             if syncedRev == latestRev:
-                print("repo {0} is up to date\n".format(v['dir']))
+                print("repo {0} is up to date".format(v['dir']))
             elif syncedRev == baseRev:
-                print("repo {0} need to pull(latest commit:{1})\n".format(v['dir'], latestRev.rstrip()))
+                print("repo {0} need to pull(latest commit:{1})".format(v['dir'], latestRev.rstrip()))
             elif latestRev == baseRev:
-                print("repo {0} need to push\n".format(v['dir']))
+                print("repo {0} need to push".format(v['dir']))
             else:
-                print("repo {0} has diverged\n".format(v['dir']))
+                print("repo {0} has diverged".format(v['dir']))
         if('hg' in v):
             syncedRev = Hg.getCurrentSyncedRevision(dir)
-            latestRev = Hg.getLatestRevisionOnline(dir)
-# TODO!
-
+            latestRev = Hg.getLatestRevisionOnline(dir, v['hg'])
+            if syncedRev == latestRev:
+                print("repo {0} is up to date".format(v['dir']))
+            else:
+                print("repo {0} needs push/pull".format(v['dir']))
 elif args.sync:
     readconfig()
     # sync repos
     for k,v in config.items():
         dir = os.path.join(MODULE_ROOT, "".join(v['dir']))
+        rev = -1
+        if('rev' in v):
+            rev = v['rev']
+        if('fixed-rev' in v):
+            rev = v['fixed-rev']
+        if rev == -1:
+            print('no revision found for repo {0}'.format(v['dir']))
+            raise
+
         if('git' in v):
-            Git.syncToRev(v['git'], dir, v['rev'])
+            Git.syncToRev(v['git'], dir, rev)
         if('hg' in v):
-            Hg.syncToRev(v['hg'], dir, v['rev'])
+            Hg.syncToRev(v['hg'], dir, rev)
+
     # copy files
+    for k,v in config.items():
+        dir = os.path.join(MODULE_ROOT, "".join(v['dir']))
+
 
 #elif args.push:
 #    readconfig()

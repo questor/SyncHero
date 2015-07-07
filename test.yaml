@@ -13,8 +13,8 @@ remotery:
 remotery-buildfile:
     hg: https://bitbucket.org/questor/extlibbuildfiles
     dir: extlibs/.temp/buildsources
-    #fixed-rev: master
-    rev: tip
+    fixed-rev: tip
+    #rev: tip
     copy:
         - src: libRemotery.lua
           dst: extlibs/remotery/libRemotery.lua
