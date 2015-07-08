@@ -29,10 +29,10 @@ class Git:
     @staticmethod
     def syncToRev(url, directory, revision):
         # TODO: check for subrepos
-        if os.path.exists(dir):
+        if os.path.exists(directory):
             Git.callGit(directory, 'fetch')
         else:
-            print("repopath {0} not found, initial clone running".format(dir))
+            print("repopath {0} not found, initial clone running".format(directory))
             os.makedirs(directory, exist_ok=True)
             try:
                 Git.callGit(None, 'clone', '--progress', url, directory)
@@ -76,10 +76,10 @@ class Hg:
     @staticmethod
     def syncToRev(url, directory, revision):
         # TODO: check for subrepos
-        if os.path.exists(dir):
+        if os.path.exists(directory):
             Hg.callHg(directory, 'pull')
         else:
-            print("repopath {0} not found, initial clone running".format(dir))
+            print("repopath {0} not found, initial clone running".format(directory))
             os.makedirs(directory, exist_ok=True)
             try:
                 Hg.callHg(None, 'clone', url, directory)
@@ -195,7 +195,9 @@ def main():
         # copy files
         for k,v in config.items():
             dir = os.path.join(MODULE_ROOT, "".join(v['dir']))
-
+            if('copy' in v):
+                for i in v['copy']:
+                    print("copy src {0} to {1}".format(v['dir']+'/'+i['src'], i['dst']))
 
     #elif args.push:
     #    readconfig()

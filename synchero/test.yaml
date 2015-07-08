@@ -14,9 +14,10 @@ remotery-buildfile:
     hg: https://bitbucket.org/questor/extlibbuildfiles
     dir: extlibs/.temp/buildsources
     fixed-rev: tip
-    #rev: tip
     copy:
         - src: libRemotery.lua
           dst: extlibs/remotery/libRemotery.lua
+        - src: test1
+          dst: test2
 
 #types not yet supported: curl
