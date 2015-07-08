@@ -60,4 +60,6 @@ target/
 SyncHero.iml
 extlibs/
 .idea/workspace.xml
+build/
+synchero.egg-info/
 

@@ -1,0 +1,5 @@
+#!/usr/bin/python
+import synchero.synchero as synchero
+
+if __name__ == "__main__":
+    synchero.main()

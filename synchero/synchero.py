@@ -68,7 +68,8 @@ class Hg:
         stdout = subprocess.PIPE
         process = subprocess.Popen(command, stdin=subprocess.DEVNULL, stdout=stdout,universal_newlines=True)
         output, _ = process.communicate()
-        if process.returncode != 0:
+        # 0 is ok, 1 is sometimes also ok (hg incoming or hg outgoing)
+        if (process.returncode != 0) and (process.returncode != 1):
             raise RuntimeError('Command exited with error code {0}:\n$ {1}\n {2}'.format(process.returncode, ' '.join(command), output))
         return output
 
@@ -119,81 +120,91 @@ def readconfig():
     #    print(k, "->", v)
     #print("\n")
 
-print("SyncHero V0.3")
-
 config = None
+def main():
+    print("SyncHero V0.3")
 
-# In Python versions prior to 3.4, __file__ returns a relative path. This path
-# is fixed at load time, so if the program later cd's (as we do in tests, at
-# least) __file__ is no longer valid. As a workaround, compute the absolute
-# path at load time.
-MODULE_ROOT = os.path.abspath(os.path.dirname(__file__))
+    # In Python versions prior to 3.4, __file__ returns a relative path. This path
+    # is fixed at load time, so if the program later cd's (as we do in tests, at
+    # least) __file__ is no longer valid. As a workaround, compute the absolute
+    # path at load time.
+    MODULE_ROOT = os.path.abspath(os.path.dirname(__file__))
 
-parser = argparse.ArgumentParser(description='SyncHero')
-parser.add_argument('-c', '--check-repos', help='check for updates in the repositories', action='store_true')
-parser.add_argument('-s', '--sync', help='sync to revisions from config file', action='store_true')
-#parser.add_argument('-p', '--push', help='push all repos back onto server', action='store_true')
-parser.add_argument('-r', '--reverse-copy', help='reverse copy of files moved during sync', action='store_true')
-args = parser.parse_args()
+    parser = argparse.ArgumentParser(description='SyncHero')
+    parser.add_argument('-c', '--check-repos', help='check for updates in the repositories', action='store_true')
+    parser.add_argument('-s', '--sync', help='sync to revisions from config file', action='store_true')
+    #parser.add_argument('-p', '--push', help='push all repos back onto server', action='store_true')
+    parser.add_argument('-r', '--reverse-copy', help='reverse copy of files moved during sync', action='store_true')
+    args = parser.parse_args()
 
-#print(hashfile(open('test.yaml', 'rb'), hashlib.md5()))
+    #print(hashfile(open('test.yaml', 'rb'), hashlib.md5()))
 
-if args.check_repos:
-    readconfig()
-    for k,v in config.items():
-        dir = os.path.join(MODULE_ROOT, "".join(v['dir']))
+    if args.check_repos:
+        readconfig()
+        for k,v in config.items():
+            dir = os.path.join(MODULE_ROOT, "".join(v['dir']))
 
-        if('fixed-rev' in v):
-            print("skipping repo {0} because of fixed-rev".format(v['dir'].rstrip()))
-            continue
+            if('fixed-rev' in v):
+                print("skipping repo {0} because of fixed-rev".format(v['dir'].rstrip()))
+                continue
 
-        if('git' in v):
-            syncedRev = Git.getCurrentSyncedRevision(dir)
-            latestRev = Git.getLatestRevisionOnline(dir, v['git'])
-            baseRev = Git.callGit(dir, 'merge-base', '@', '@{u}')
-            if syncedRev == latestRev:
-                print("repo {0} is up to date".format(v['dir']))
-            elif syncedRev == baseRev:
-                print("repo {0} need to pull(latest commit:{1})".format(v['dir'], latestRev.rstrip()))
-            elif latestRev == baseRev:
-                print("repo {0} need to push".format(v['dir']))
-            else:
-                print("repo {0} has diverged".format(v['dir']))
-        if('hg' in v):
-            syncedRev = Hg.getCurrentSyncedRevision(dir)
-            latestRev = Hg.getLatestRevisionOnline(dir, v['hg'])
-            if syncedRev == latestRev:
-                print("repo {0} is up to date".format(v['dir']))
-            else:
-                print("repo {0} needs push/pull".format(v['dir']))
-elif args.sync:
-    readconfig()
-    # sync repos
-    for k,v in config.items():
-        dir = os.path.join(MODULE_ROOT, "".join(v['dir']))
-        rev = -1
-        if('rev' in v):
-            rev = v['rev']
-        if('fixed-rev' in v):
-            rev = v['fixed-rev']
-        if rev == -1:
-            print('no revision found for repo {0}'.format(v['dir']))
-            raise
+            if('git' in v):
+                syncedRev = Git.getCurrentSyncedRevision(dir)
+                latestRev = Git.getLatestRevisionOnline(dir, v['git'])
+                baseRev = Git.callGit(dir, 'merge-base', '@', '@{u}')
+                if syncedRev == latestRev:
+                    print("repo {0} is up to date".format(v['dir']))
+                elif syncedRev == baseRev:
+                    print("repo {0} need to pull(latest commit:{1})".format(v['dir'], latestRev.rstrip()))
+                elif latestRev == baseRev:
+                    print("repo {0} need to push".format(v['dir']))
+                else:
+                    print("repo {0} has diverged".format(v['dir']))
+            if('hg' in v):
+                outputIncoming = Hg.callHg(dir, 'incoming')
+                if outputIncoming.find("no changes found") == -1:
+                    print("repo {0} found changes on server".format(v['dir']))
+                #else:
+                #    print("repo {0} found no changes on server".format(v['dir']))
 
-        if('git' in v):
-            Git.syncToRev(v['git'], dir, rev)
-        if('hg' in v):
-            Hg.syncToRev(v['hg'], dir, rev)
+                outputOutgoing = Hg.callHg(dir, 'outgoing')
+                if outputOutgoing.find("no changes found") == -1:
+                    print("repo {0} found local changes not pushed to server".format(v['dir']))
+                #else:
+                #    print("repo {0} found no local changes not pushed to server".format(v['dir']))
 
-    # copy files
-    for k,v in config.items():
-        dir = os.path.join(MODULE_ROOT, "".join(v['dir']))
+    elif args.sync:
+        readconfig()
+        # sync repos
+        for k,v in config.items():
+            dir = os.path.join(MODULE_ROOT, "".join(v['dir']))
+            rev = -1
+            if('rev' in v):
+                rev = v['rev']
+            if('fixed-rev' in v):
+                rev = v['fixed-rev']
+            if rev == -1:
+                print('no revision found for repo {0}'.format(v['dir']))
+                raise
+
+            if('git' in v):
+                Git.syncToRev(v['git'], dir, rev)
+            if('hg' in v):
+                Hg.syncToRev(v['hg'], dir, rev)
+
+        # copy files
+        for k,v in config.items():
+            dir = os.path.join(MODULE_ROOT, "".join(v['dir']))
 
 
-#elif args.push:
-#    readconfig()
-elif args.reverse_copy:
-    readconfig()
-    # reverse-copy files
-else:
-    parser.print_help()
+    #elif args.push:
+    #    readconfig()
+    elif args.reverse_copy:
+        readconfig()
+        # reverse-copy files
+    else:
+        parser.print_help()
+
+
+if __name__ == '__main__':
+   main()
