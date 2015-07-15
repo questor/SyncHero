@@ -10,6 +10,9 @@ import subprocess
 import os
 import shutil
 
+import urllib.parse as urlparse
+import urllib.request as urllib
+
 class Git:
     @staticmethod
     def callGit(directory, *args):
@@ -102,6 +105,50 @@ class Hg:
         return Hg.callHg(directory, 'identify', '--id')
 
 #-------------------------------------------------------------------
+def readRepoConfig():
+    global config
+    stream = open("test.yaml", "r")
+    config = yaml.load(stream)
+    #print("RepoConfig:")
+    #for k,v in doc.items():
+    #    print(k, "->", v)
+    #print("\n")
+
+def readFileCopyState():
+    global fileCopyState
+    global fileCopyStateIsDirty
+    if os.path.isfile(".synchero.filestate"):
+        stream = open(".synchero.filestate")
+        fileCopyState = yaml.load(stream)
+    fileCopyStateIsDirty = False
+    #print("FileCopyState:")
+    #for k,v in doc.items():
+    #    print(k, "->", v)
+    #print("\n")
+
+def writeFileCopyState():
+    global fileCopyState
+    global fileCopyStateIsDirty
+    if fileCopyStateIsDirty:
+        with open(".synchero.filestate2") as f:
+            yaml.dump(fileCopyState, f, default_flow_style=False)
+
+
+def getFileCopyState(filename):
+    global fileCopyState
+    statestring = urlparse.urljoin('file:', urllib.pathname2url(filename))
+    print("statestring {0}".format(statestring))
+    if statestring in fileCopyState:
+        return fileCopyState[statestring]
+    else:
+        return -1
+
+def setFileCopyState(filename, newstate):
+    global fileCopyState
+    global fileCopyStateIsDirty
+    statestring = urlparse.urljoin('file:', urllib.pathname2url(filename))
+    fileCopyState[statestring] = newstate
+    fileCopyStateIsDirty = True
 
 def hashfile(afile, hasher, blocksize=65536):
     buf = afile.read(blocksize)
@@ -111,16 +158,10 @@ def hashfile(afile, hasher, blocksize=65536):
     afile.close()
     return hasher.hexdigest()
 
-
-def readconfig():
-    global config
-    stream = open("test.yaml", "r")
-    config = yaml.load(stream)
-    #for k,v in doc.items():
-    #    print(k, "->", v)
-    #print("\n")
-
 config = None
+fileCopyState = None
+fileCopyStateIsDirty = False
+
 def main():
     print("SyncHero V0.3")
 
@@ -137,10 +178,8 @@ def main():
     parser.add_argument('-r', '--reverse-copy', help='reverse copy of files moved during sync', action='store_true')
     args = parser.parse_args()
 
-    #print(hashfile(open('test.yaml', 'rb'), hashlib.md5()))
-
     if args.check_repos:
-        readconfig()
+        readRepoConfig()
         for k,v in config.items():
             dir = os.path.join(MODULE_ROOT, "".join(v['dir']))
 
@@ -174,7 +213,8 @@ def main():
                 #    print("repo {0} found no local changes not pushed to server".format(v['dir']))
 
     elif args.sync:
-        readconfig()
+        readRepoConfig()
+        readFileCopyState()
         # sync repos
         for k,v in config.items():
             dir = os.path.join(MODULE_ROOT, "".join(v['dir']))
@@ -197,13 +237,40 @@ def main():
             dir = os.path.join(MODULE_ROOT, "".join(v['dir']))
             if('copy' in v):
                 for i in v['copy']:
-                    print("copy src {0} to {1}".format(v['dir']+'/'+i['src'], i['dst']))
+                    srcFileName = os.path.abspath(v['dir']+'/'+i['src'])
+                    dstFileName = os.path.abspath(i['dst'])
+                    print("copy src {0} to {1}".format(srcFileName, dstFileName))
+                    sourceFileState = getFileCopyState(srcFileName)
+                    destFileState = getFileCopyState(dstFileName)
+
+                    sourceHash = hashfile(open(srcFileName, 'rb'), hashlib.md5())
+                    destHash = hashfile(open(dstFileName, 'rb'), hashlib.md5())
+
+                    if sourceFileState != sourceHash:
+                        if destFileState == destHash:
+                            print("destHash equals to destFileState, copy is safe!")
+                            #TODO: do copy and update filestate
+                        else:
+                            print("desetHash is NOT equal to destFileState, merge file!")
+                    else:
+                        print("nothing to do because sourceState equals to sourceHash")
+                        if destFileState == destHash:
+                            print("nothing to do, file not modified")
+                        else:
+                            print("file was not changed in source, but on destination, should check rev-copy")
+
+                    #print(hashfile(open('test.yaml', 'rb'), hashlib.md5()))
+        writeFileCopyState()
+
 
     #elif args.push:
-    #    readconfig()
+    #    readRepoConfig()
     elif args.reverse_copy:
-        readconfig()
+        readRepoConfig()
+        readFileCopyState()
         # reverse-copy files
+
+        writeFileCopyState()
     else:
         parser.print_help()
 
