@@ -175,7 +175,7 @@ fileCopyStateIsDirty = False
 
 
 def main():
-    print("SyncHero V0.3")
+    print("SyncHero V1.0-Alpha")
 
     # In Python versions prior to 3.4, __file__ returns a relative path. This path
     # is fixed at load time, so if the program later cd's (as we do in tests, at
@@ -270,14 +270,14 @@ def main():
                             shutil.copy(srcFileName, dstFileName)
                             setFileCopyState(dstFileName, sourceHash)   # new filehash!
                         else:
-                            print("Destination File was changed after last copy, merge file!")
+                            print("Destination File {0} was changed after last copy, merge file!".format(dstFileName))
                     else:
                         #print("nothing to do because sourceState equals to sourceHash")
                         if destFileState == destHash:
                             #print("nothing to do, file not modified")
                             pass
                         else:
-                            print("Destination File was changed after last copy, do a rev-copy!")
+                            print("Destination File {0} was changed after last copy, do a rev-copy!".format(dstFileName))
         writeFileCopyState()
 
 
@@ -286,7 +286,41 @@ def main():
     elif args.reverse_copy:
         readRepoConfig()
         readFileCopyState()
+
         # reverse-copy files
+        for k, v in repoConfig.items():
+            dir = os.path.join(MODULE_ROOT, "".join(v['dir']))
+            if ('copy' in v):
+                for i in v['copy']:
+                    srcFileName = os.path.abspath(i['dst'])
+                    dstFileName = os.path.abspath(v['dir'] + '/' + i['src'])
+                    print("rev-copy src {0} to {1}".format(srcFileName, dstFileName))
+                    sourceFileState = getFileCopyState(srcFileName)
+                    destFileState = getFileCopyState(dstFileName)
+
+                    if os.path.isfile(srcFileName) == False:
+                        print("copy src <{0}> not found!".format(srcFileName))
+                        raise
+                    sourceHash = hashfile(open(srcFileName, 'rb'), hashlib.md5())
+                    destHash = -1
+                    if os.path.isfile(dstFileName):
+                        destHash = hashfile(open(dstFileName, 'rb'), hashlib.md5())
+
+                    if sourceFileState != sourceHash:
+                        setFileCopyState(srcFileName, sourceHash)
+                        if destFileState == destHash:
+                            #print("destHash equals to destFileState, copy is safe!")
+                            shutil.copy(srcFileName, dstFileName)
+                            setFileCopyState(dstFileName, sourceHash)   # new filehash!
+                        else:
+                            print("Destination File {0} was changed after last copy, merge file!".format(dstFileName))
+                    else:
+                        #print("nothing to do because sourceState equals to sourceHash")
+                        if destFileState == destHash:
+                            #print("nothing to do, file not modified")
+                            pass
+                        else:
+                            print("Destination File {0} was changed after last copy, do a copy!".format(dstFileName))
 
         writeFileCopyState()
     else:
