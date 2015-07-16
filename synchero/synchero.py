@@ -1,4 +1,3 @@
-
 # based on the same idea like peru, but here the sub-repos are directly pushable back to the source
 
 
@@ -13,20 +12,23 @@ import shutil
 import urllib.parse as urlparse
 import urllib.request as urllib
 
+
 class Git:
     @staticmethod
     def callGit(directory, *args):
-        command=['git']
-        if(directory):
+        command = ['git']
+        if (directory):
             command.append('-C')
             command.append(directory)
         command.extend(args)
 
         stdout = subprocess.PIPE
-        process = subprocess.Popen(command, stdin=subprocess.DEVNULL, stdout=stdout,universal_newlines=True)
+        process = subprocess.Popen(command, stdin=subprocess.DEVNULL, stdout=stdout, universal_newlines=True)
         output, _ = process.communicate()
         if process.returncode != 0:
-            raise RuntimeError('Command exited with error code {0}:\n$ {1}\n {2}'.format(process.returncode, ' '.join(command), output))
+            raise RuntimeError(
+                'Command exited with error code {0}:\n$ {1}\n {2}'.format(process.returncode, ' '.join(command),
+                                                                          output))
         return output
 
     @staticmethod
@@ -58,22 +60,25 @@ class Git:
         rev = Git.callGit(directory, 'rev-parse', '@')
         return rev
 
-#-------------------------------------------------------------------
+
+# -------------------------------------------------------------------
 class Hg:
     @staticmethod
     def callHg(directory, *args):
-        command=['hg']
-        if(directory):
+        command = ['hg']
+        if (directory):
             command.append('--repository')
             command.append(directory)
         command.extend(args)
 
         stdout = subprocess.PIPE
-        process = subprocess.Popen(command, stdin=subprocess.DEVNULL, stdout=stdout,universal_newlines=True)
+        process = subprocess.Popen(command, stdin=subprocess.DEVNULL, stdout=stdout, universal_newlines=True)
         output, _ = process.communicate()
         # 0 is ok, 1 is sometimes also ok (hg incoming or hg outgoing)
         if (process.returncode != 0) and (process.returncode != 1):
-            raise RuntimeError('Command exited with error code {0}:\n$ {1}\n {2}'.format(process.returncode, ' '.join(command), output))
+            raise RuntimeError(
+                'Command exited with error code {0}:\n$ {1}\n {2}'.format(process.returncode, ' '.join(command),
+                                                                          output))
         return output
 
     @staticmethod
@@ -104,15 +109,17 @@ class Hg:
     def getCurrentSyncedRevision(directory):
         return Hg.callHg(directory, 'identify', '--id')
 
-#-------------------------------------------------------------------
+
+# -------------------------------------------------------------------
 def readRepoConfig():
-    global config
+    global repoConfig
     stream = open("test.yaml", "r")
-    config = yaml.load(stream)
-    #print("RepoConfig:")
-    #for k,v in doc.items():
+    repoConfig = yaml.load(stream)
+    # print("RepoConfig:")
+    # for k,v in doc.items():
     #    print(k, "->", v)
-    #print("\n")
+    # print("\n")
+
 
 def readFileCopyState():
     global fileCopyState
@@ -121,27 +128,29 @@ def readFileCopyState():
         stream = open(".synchero.filestate")
         fileCopyState = yaml.load(stream)
     fileCopyStateIsDirty = False
-    #print("FileCopyState:")
-    #for k,v in doc.items():
+    # print("FileCopyState:")
+    # for k,v in doc.items():
     #    print(k, "->", v)
-    #print("\n")
+    # print("\n")
+
 
 def writeFileCopyState():
     global fileCopyState
     global fileCopyStateIsDirty
     if fileCopyStateIsDirty:
-        with open(".synchero.filestate2") as f:
+        with open(".synchero.filestate", "w+") as f:
             yaml.dump(fileCopyState, f, default_flow_style=False)
 
 
 def getFileCopyState(filename):
     global fileCopyState
     statestring = urlparse.urljoin('file:', urllib.pathname2url(filename))
-    print("statestring {0}".format(statestring))
+    #print("statestring {0}".format(statestring))
     if statestring in fileCopyState:
         return fileCopyState[statestring]
     else:
         return -1
+
 
 def setFileCopyState(filename, newstate):
     global fileCopyState
@@ -149,6 +158,7 @@ def setFileCopyState(filename, newstate):
     statestring = urlparse.urljoin('file:', urllib.pathname2url(filename))
     fileCopyState[statestring] = newstate
     fileCopyStateIsDirty = True
+
 
 def hashfile(afile, hasher, blocksize=65536):
     buf = afile.read(blocksize)
@@ -158,9 +168,11 @@ def hashfile(afile, hasher, blocksize=65536):
     afile.close()
     return hasher.hexdigest()
 
-config = None
-fileCopyState = None
+
+repoConfig = {}
+fileCopyState = {}
 fileCopyStateIsDirty = False
+
 
 def main():
     print("SyncHero V0.3")
@@ -174,20 +186,20 @@ def main():
     parser = argparse.ArgumentParser(description='SyncHero')
     parser.add_argument('-c', '--check-repos', help='check for updates in the repositories', action='store_true')
     parser.add_argument('-s', '--sync', help='sync to revisions from config file', action='store_true')
-    #parser.add_argument('-p', '--push', help='push all repos back onto server', action='store_true')
+    # parser.add_argument('-p', '--push', help='push all repos back onto server', action='store_true')
     parser.add_argument('-r', '--reverse-copy', help='reverse copy of files moved during sync', action='store_true')
     args = parser.parse_args()
 
     if args.check_repos:
         readRepoConfig()
-        for k,v in config.items():
+        for k, v in repoConfig.items():
             dir = os.path.join(MODULE_ROOT, "".join(v['dir']))
 
-            if('fixed-rev' in v):
+            if ('fixed-rev' in v):
                 print("skipping repo {0} because of fixed-rev".format(v['dir'].rstrip()))
                 continue
 
-            if('git' in v):
+            if ('git' in v):
                 syncedRev = Git.getCurrentSyncedRevision(dir)
                 latestRev = Git.getLatestRevisionOnline(dir, v['git'])
                 baseRev = Git.callGit(dir, 'merge-base', '@', '@{u}')
@@ -199,71 +211,77 @@ def main():
                     print("repo {0} need to push".format(v['dir']))
                 else:
                     print("repo {0} has diverged".format(v['dir']))
-            if('hg' in v):
+            if ('hg' in v):
                 outputIncoming = Hg.callHg(dir, 'incoming')
                 if outputIncoming.find("no changes found") == -1:
                     print("repo {0} found changes on server".format(v['dir']))
-                #else:
+                # else:
                 #    print("repo {0} found no changes on server".format(v['dir']))
 
                 outputOutgoing = Hg.callHg(dir, 'outgoing')
                 if outputOutgoing.find("no changes found") == -1:
                     print("repo {0} found local changes not pushed to server".format(v['dir']))
-                #else:
-                #    print("repo {0} found no local changes not pushed to server".format(v['dir']))
+                    # else:
+                    #    print("repo {0} found no local changes not pushed to server".format(v['dir']))
 
     elif args.sync:
         readRepoConfig()
         readFileCopyState()
         # sync repos
-        for k,v in config.items():
+        for k, v in repoConfig.items():
             dir = os.path.join(MODULE_ROOT, "".join(v['dir']))
             rev = -1
-            if('rev' in v):
+            if ('rev' in v):
                 rev = v['rev']
-            if('fixed-rev' in v):
+            if ('fixed-rev' in v):
                 rev = v['fixed-rev']
             if rev == -1:
                 print('no revision found for repo {0}'.format(v['dir']))
                 raise
 
-            if('git' in v):
+            if ('git' in v):
                 Git.syncToRev(v['git'], dir, rev)
-            if('hg' in v):
+            if ('hg' in v):
                 Hg.syncToRev(v['hg'], dir, rev)
 
         # copy files
-        for k,v in config.items():
+        for k, v in repoConfig.items():
             dir = os.path.join(MODULE_ROOT, "".join(v['dir']))
-            if('copy' in v):
+            if ('copy' in v):
                 for i in v['copy']:
-                    srcFileName = os.path.abspath(v['dir']+'/'+i['src'])
+                    srcFileName = os.path.abspath(v['dir'] + '/' + i['src'])
                     dstFileName = os.path.abspath(i['dst'])
                     print("copy src {0} to {1}".format(srcFileName, dstFileName))
                     sourceFileState = getFileCopyState(srcFileName)
                     destFileState = getFileCopyState(dstFileName)
 
+                    if os.path.isfile(srcFileName) == False:
+                        print("copy src <{0}> not found!".format(srcFileName))
+                        raise
                     sourceHash = hashfile(open(srcFileName, 'rb'), hashlib.md5())
-                    destHash = hashfile(open(dstFileName, 'rb'), hashlib.md5())
+                    destHash = -1
+                    if os.path.isfile(dstFileName):
+                        destHash = hashfile(open(dstFileName, 'rb'), hashlib.md5())
 
                     if sourceFileState != sourceHash:
+                        setFileCopyState(srcFileName, sourceHash)
                         if destFileState == destHash:
-                            print("destHash equals to destFileState, copy is safe!")
-                            #TODO: do copy and update filestate
+                            #print("destHash equals to destFileState, copy is safe!")
+                            shutil.copy(srcFileName, dstFileName)
+                            setFileCopyState(dstFileName, sourceHash)   # new filehash!
                         else:
-                            print("desetHash is NOT equal to destFileState, merge file!")
+                            print("Destination File was changed after last copy, merge file!")
                     else:
-                        print("nothing to do because sourceState equals to sourceHash")
+                        #print("nothing to do because sourceState equals to sourceHash")
                         if destFileState == destHash:
-                            print("nothing to do, file not modified")
+                            #print("nothing to do, file not modified")
+                            pass
                         else:
-                            print("file was not changed in source, but on destination, should check rev-copy")
-
-                    #print(hashfile(open('test.yaml', 'rb'), hashlib.md5()))
+                            print("Destination File was changed after last copy, do a rev-copy!")
         writeFileCopyState()
 
 
-    #elif args.push:
+    # elif args.push:
     #    readRepoConfig()
     elif args.reverse_copy:
         readRepoConfig()
@@ -276,4 +294,4 @@ def main():
 
 
 if __name__ == '__main__':
-   main()
+    main()

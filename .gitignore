@@ -58,7 +58,8 @@ target/
 
 
 SyncHero.iml
-extlibs/
+synchero/extlibs/
+synchero/.synchero.filestate
 .idea/workspace.xml
 build/
 synchero.egg-info/

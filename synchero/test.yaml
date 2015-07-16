@@ -17,7 +17,5 @@ remotery-buildfile:
     copy:
         - src: libRemotery.lua
           dst: extlibs/remotery/libRemotery.lua
-        - src: test1
-          dst: test2
 
 #types not yet supported: curl
