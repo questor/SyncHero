@@ -177,12 +177,6 @@ fileCopyStateIsDirty = False
 def main():
     print("SyncHero V1.0-Alpha")
 
-    # In Python versions prior to 3.4, __file__ returns a relative path. This path
-    # is fixed at load time, so if the program later cd's (as we do in tests, at
-    # least) __file__ is no longer valid. As a workaround, compute the absolute
-    # path at load time.
-    MODULE_ROOT = os.path.abspath(os.path.dirname(__file__))
-
     parser = argparse.ArgumentParser(description='SyncHero')
     parser.add_argument('-c', '--check-repos', help='check for updates in the repositories', action='store_true')
     parser.add_argument('-s', '--sync', help='sync to revisions from config file', action='store_true')
@@ -193,7 +187,7 @@ def main():
     if args.check_repos:
         readRepoConfig()
         for k, v in repoConfig.items():
-            dir = os.path.join(MODULE_ROOT, "".join(v['dir']))
+            dir = v['dir']
 
             if ('fixed-rev' in v):
                 print("skipping repo {0} because of fixed-rev".format(v['dir'].rstrip()))
@@ -229,7 +223,7 @@ def main():
         readFileCopyState()
         # sync repos
         for k, v in repoConfig.items():
-            dir = os.path.join(MODULE_ROOT, "".join(v['dir']))
+            dir = v['dir']
             rev = -1
             if ('rev' in v):
                 rev = v['rev']
@@ -246,7 +240,7 @@ def main():
 
         # copy files
         for k, v in repoConfig.items():
-            dir = os.path.join(MODULE_ROOT, "".join(v['dir']))
+            dir = v['dir']
             if ('copy' in v):
                 for i in v['copy']:
                     srcFileName = os.path.abspath(v['dir'] + '/' + i['src'])
@@ -289,7 +283,7 @@ def main():
 
         # reverse-copy files
         for k, v in repoConfig.items():
-            dir = os.path.join(MODULE_ROOT, "".join(v['dir']))
+            dir = v['dir']
             if ('copy' in v):
                 for i in v['copy']:
                     srcFileName = os.path.abspath(i['dst'])
