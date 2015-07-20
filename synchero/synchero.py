@@ -113,7 +113,7 @@ class Hg:
 # -------------------------------------------------------------------
 def readRepoConfig():
     global repoConfig
-    stream = open("test.yaml", "r")
+    stream = open("synchero.config", "r")
     repoConfig = yaml.load(stream)
     # print("RepoConfig:")
     # for k,v in doc.items():
