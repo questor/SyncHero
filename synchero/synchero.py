@@ -53,11 +53,11 @@ class Git:
     @staticmethod
     def getLatestRevisionOnline(directory, url):
         Git.callGit(directory, 'fetch')
-        return Git.callGit(directory, 'rev-parse', '@{u}')
+        return Git.callGit(directory, 'rev-parse', '@{u}').rstrip()
 
     @staticmethod
     def getCurrentSyncedRevision(directory):
-        rev = Git.callGit(directory, 'rev-parse', '@')
+        rev = Git.callGit(directory, 'rev-parse', '@').rstrip()
         return rev
 
 
@@ -103,11 +103,11 @@ class Hg:
     @staticmethod
     def getLatestRevisionOnline(directory, url):
         Hg.callHg(directory, 'pull')
-        return Hg.callHg(directory, 'identify', '--id', '--rev', 'tip')
+        return Hg.callHg(directory, 'identify', '--id', '--rev', 'tip').rstrip()
 
     @staticmethod
     def getCurrentSyncedRevision(directory):
-        return Hg.callHg(directory, 'identify', '--id')
+        return Hg.callHg(directory, 'identify', '--id').rstrip()
 
 
 # -------------------------------------------------------------------
@@ -120,6 +120,20 @@ def readRepoConfig():
     #    print(k, "->", v)
     # print("\n")
 
+def writeRepoConfig():
+    global repoConfig
+    repoState = {}
+
+    for k, v in repoConfig.items():
+        dir = v['dir']
+        if ('git' in v):
+            syncedRev = Git.getCurrentSyncedRevision(dir)
+        if ('hg' in v):
+            syncedRev = Hg.getCurrentSyncedRevision(dir)
+        repoState[v['dir']] = syncedRev
+
+    with open("synchero.repostate", "w+") as f:
+        yaml.dump(repoState, f, default_flow_style=False)
 
 def readFileCopyState():
     global fileCopyState
@@ -200,7 +214,7 @@ def main():
                 if syncedRev == latestRev:
                     print("repo {0} is up to date".format(v['dir']))
                 elif syncedRev == baseRev:
-                    print("repo {0} need to pull(latest commit:{1})".format(v['dir'], latestRev.rstrip()))
+                    print("repo {0} need to pull(latest commit:{1})".format(v['dir'], latestRev))
                 elif latestRev == baseRev:
                     print("repo {0} need to push".format(v['dir']))
                 else:
@@ -273,6 +287,7 @@ def main():
                         else:
                             print("Destination File {0} was changed after last copy, do a rev-copy!".format(dstFileName))
         writeFileCopyState()
+        writeRepoConfig()
 
 
     # elif args.push:

@@ -57,7 +57,7 @@ setup(
     #        "appname/data/config/config.yaml",
     #    ]
     #},
-    version = "0.5.0",
+    version = "0.9.1",
     description = "SyncHero tool",
     author = "questor",
     author_email = "questor@inter",
@@ -71,11 +71,12 @@ setup(
     license='LICENSE',
     classifiers = [
         "Programming Language :: Python",
-        "Development Status :: 2 - Pre-Alpha",
-        "Environment :: Other Environment",
+        "Development Status :: 3 - Alpha",
+        "Environment :: Console",
         "Intended Audience :: Developers",
         "License :: Public Domain",
         "Operating System :: POSIX :: Linux",
+        'Operating System :: Microsoft :: Windows',
         "Topic :: Software Development",
         ],
     cmdclass = {'install_scripts':my_install_scripts},
