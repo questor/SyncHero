@@ -32,19 +32,30 @@ class Git:
         return output
 
     @staticmethod
-    def syncToRev(url, directory, revision):
+    def syncToRev(url, directory, branch, revision):
         # TODO: check for subrepos
         if os.path.exists(directory):
             Git.callGit(directory, 'fetch')
+            if branch != "":
+                curBranch = Git.getCurrentBranch(directory)
+                if curBranch != branch:
+                    print("repository is NOT on correct branch({0})".format(branch))
+                    print("please correct it manually!")
         else:
             print("repopath {0} not found, initial clone running".format(directory))
             os.makedirs(directory, exist_ok=True)
             try:
-                Git.callGit(None, 'clone', '--progress', url, directory)
+                if branch == "":
+                    Git.callGit(None, 'clone', '--progress', url, directory)
+                else:
+                    Git.callGit(None, 'clone', '-b', branch, '--progress', url, directory)
             except:
                 shutil.rmtree(directory)
                 raise
-        Git.callGit(directory, 'reset', '--hard', revision)
+        if revision == "master" and branch != "":
+            Git.callGit(directory, 'reset', '--hard', branch)
+        else:
+            Git.callGit(directory, 'reset', '--hard', revision)
 
     @staticmethod
     def push(url, directory):
@@ -53,13 +64,18 @@ class Git:
     @staticmethod
     def getLatestRevisionOnline(directory, url):
         Git.callGit(directory, 'fetch')
-        return Git.callGit(directory, 'rev-parse', '@{u}')
+        return Git.callGit(directory, 'rev-parse', '@{u}').rstrip()
 
     @staticmethod
     def getCurrentSyncedRevision(directory):
-        rev = Git.callGit(directory, 'rev-parse', '@')
+        rev = Git.callGit(directory, 'rev-parse', '@').rstrip()
         return rev
 
+    @staticmethod
+    def getCurrentBranch(directory):
+        branch = Git.callGit(directory, 'rev-parse', '--abbrev-ref', 'HEAD').rstrip()
+        return branch
+    # can be branch-name, "master" or "fatal: Not a git repository (or any of the parent directories): .git"
 
 # -------------------------------------------------------------------
 class Hg:
@@ -82,7 +98,9 @@ class Hg:
         return output
 
     @staticmethod
-    def syncToRev(url, directory, revision):
+    def syncToRev(url, directory, branch, revision):
+        if branch != "":
+            print("branch support in mercurial not implemented!")
         # TODO: check for subrepos
         if os.path.exists(directory):
             Hg.callHg(directory, 'pull')
@@ -103,11 +121,11 @@ class Hg:
     @staticmethod
     def getLatestRevisionOnline(directory, url):
         Hg.callHg(directory, 'pull')
-        return Hg.callHg(directory, 'identify', '--id', '--rev', 'tip')
+        return Hg.callHg(directory, 'identify', '--id', '--rev', 'tip').rstrip()
 
     @staticmethod
     def getCurrentSyncedRevision(directory):
-        return Hg.callHg(directory, 'identify', '--id')
+        return Hg.callHg(directory, 'identify', '--id').rstrip()
 
 
 # -------------------------------------------------------------------
@@ -120,6 +138,20 @@ def readRepoConfig():
     #    print(k, "->", v)
     # print("\n")
 
+def writeRepoConfig():
+    global repoConfig
+    repoState = {}
+
+    for k, v in repoConfig.items():
+        dir = v['dir']
+        if ('git' in v):
+            syncedRev = Git.getCurrentSyncedRevision(dir)
+        if ('hg' in v):
+            syncedRev = Hg.getCurrentSyncedRevision(dir)
+        repoState[v['dir']] = syncedRev
+
+    with open("synchero.repostate", "w+") as f:
+        yaml.dump(repoState, f, default_flow_style=False)
 
 def readFileCopyState():
     global fileCopyState
@@ -175,7 +207,7 @@ fileCopyStateIsDirty = False
 
 
 def main():
-    print("SyncHero V1.0-Alpha")
+    print("SyncHero V1.0-Beta")
 
     parser = argparse.ArgumentParser(description='SyncHero')
     parser.add_argument('-c', '--check-repos', help='check for updates in the repositories', action='store_true')
@@ -200,7 +232,7 @@ def main():
                 if syncedRev == latestRev:
                     print("repo {0} is up to date".format(v['dir']))
                 elif syncedRev == baseRev:
-                    print("repo {0} need to pull(latest commit:{1})".format(v['dir'], latestRev.rstrip()))
+                    print("repo {0} need to pull(latest commit:{1})".format(v['dir'], latestRev))
                 elif latestRev == baseRev:
                     print("repo {0} need to push".format(v['dir']))
                 else:
@@ -233,10 +265,14 @@ def main():
                 print('no revision found for repo {0}'.format(v['dir']))
                 raise
 
+            branch = ""
+            if('branch' in v):
+                branch = v['branch']
+
             if ('git' in v):
-                Git.syncToRev(v['git'], dir, rev)
+                Git.syncToRev(v['git'], dir, branch, rev)
             if ('hg' in v):
-                Hg.syncToRev(v['hg'], dir, rev)
+                Hg.syncToRev(v['hg'], dir, branch, rev)
 
         # copy files
         for k, v in repoConfig.items():
@@ -273,6 +309,7 @@ def main():
                         else:
                             print("Destination File {0} was changed after last copy, do a rev-copy!".format(dstFileName))
         writeFileCopyState()
+        writeRepoConfig()
 
 
     # elif args.push:
